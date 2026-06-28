@@ -1,5 +1,9 @@
 # claude-skill-audit
 
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![CLI](https://img.shields.io/badge/CLI-cron%20%C2%B7%20hook%20%C2%B7%20CI-7c3aed.svg)](#options)
+
 Score every Claude Code skill in `~/.claude/skills/` against the four-part activation pattern. Detect trigger collisions. Find dead skills. Run from CLI, cron, or a PreToolUse hook.
 
 The four-part pattern was extracted from the gold-tier skills in [`anthropics/launch-your-agent`](https://github.com/anthropics/launch-your-agent) — `RedTeam`, `FirstPrinciples`, `SystemsThinking`, `BitterPillEngineering`, `IterativeDepth`, `ExtractWisdom`. They activate more reliably on natural-language prompts than the average skill because their descriptions follow a consistent four-part shape:
@@ -68,6 +72,17 @@ When a skill is missing parts:
 🟢 GOOD (one improvement away) — 3 skill(s)
   my-good-skill                    add=['not-for-boundary']
 ```
+
+### Options
+
+```bash
+python3 src/audit.py --json            # machine-readable JSON (for CI / dashboards)
+python3 src/audit.py --fix             # print a four-part template for each failing skill
+python3 src/audit.py --min-score 3     # exit nonzero if any skill scores below 3 (CI gate)
+python3 src/audit.py --skills-dir PATH # audit a directory other than ~/.claude/skills
+```
+
+Exit codes: `0` clean, `1` critical skills / missing `SKILL.md` / below `--min-score`, `2` skills directory not found. Wire `--min-score` into CI or a PreToolUse hook to keep the catalog at bar.
 
 ## The four parts in detail
 

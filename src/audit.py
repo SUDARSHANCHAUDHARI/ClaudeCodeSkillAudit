@@ -9,10 +9,11 @@ Pattern (lifted from anthropics/launch-your-agent gold-tier skills):
 
 Score 0-4. Run quarterly or after adding new skills.
 """
-import os, re, sys, datetime
+import os, re, sys, json, argparse, datetime
 from collections import defaultdict
 
 SKILLS_DIR = os.path.expanduser('~/.claude/skills')
+PARTS = ['concrete-sentence', 'use-when', 'triggers', 'not-for-boundary']
 
 
 def extract_desc(path):
@@ -81,11 +82,21 @@ def collect_triggers(desc):
     return triggers
 
 
-def main():
+def suggest_template(name, missing):
+    """Emit a four-part description skeleton for a skill that scored low."""
+    return (
+        f'description: "[One concrete sentence about what {name} does, with specifics '
+        f'like file paths, versions, or canonical IDs.] Use when [explicit activation '
+        f'condition]. Triggers on \\"phrase the user types\\", \\"another phrase\\", '
+        f'\\"/{name}\\". NOT FOR [neighbor case] (use `neighbor-skill`)."'
+    )
+
+
+def collect(skills_dir):
     rows = []
     trigger_owners = defaultdict(list)
-    for d in sorted(os.listdir(SKILLS_DIR)):
-        full = os.path.join(SKILLS_DIR, d)
+    for d in sorted(os.listdir(skills_dir)):
+        full = os.path.join(skills_dir, d)
         if not os.path.isdir(full) or d.startswith('_'):
             continue
         skillmd = os.path.join(full, 'SKILL.md')
@@ -97,6 +108,35 @@ def main():
         rows.append((d, s, parts, desc, ''))
         for t in collect_triggers(desc):
             trigger_owners[t].append(d)
+    return rows, trigger_owners
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Audit Claude Code skills against the four-part activation pattern.")
+    ap.add_argument('--skills-dir', default=SKILLS_DIR, help="Skills directory (default: ~/.claude/skills)")
+    ap.add_argument('--json', action='store_true', help="Emit machine-readable JSON instead of the text report")
+    ap.add_argument('--fix', action='store_true', help="Print a suggested four-part description for each failing skill")
+    ap.add_argument('--min-score', type=int, default=None, metavar='N', help="Exit nonzero if any skill scores below N")
+    args = ap.parse_args()
+
+    skills_dir = os.path.expanduser(args.skills_dir)
+    if not os.path.isdir(skills_dir):
+        print(f"Skills directory not found: {skills_dir}", file=sys.stderr)
+        sys.exit(2)
+    rows, trigger_owners = collect(skills_dir)
+    collisions = {t: owners for t, owners in trigger_owners.items() if len(owners) > 1}
+
+    if args.json:
+        payload = {
+            "date": str(datetime.date.today()),
+            "total": len(rows),
+            "skills": [{"name": d, "score": s, "present": p, "missing": [x for x in PARTS if x not in p] if s >= 0 else PARTS, "noSkillMd": s == -1} for d, s, p, _, _ in rows],
+            "collisions": {t: owners for t, owners in collisions.items()},
+        }
+        print(json.dumps(payload, indent=2))
+        below = any(0 <= s < args.min_score for _, s, _, _, _ in rows) if args.min_score is not None else False
+        crit = any(0 <= s <= 1 or s == -1 for _, s, _, _, _ in rows)
+        sys.exit(1 if (below or crit) else 0)
 
     total = len(rows)
     tier_counts = defaultdict(int)
@@ -164,8 +204,18 @@ def main():
           f"{tier_counts[2] + tier_counts[1] + tier_counts[0]} need work / "
           f"{tier_counts[-1]} missing SKILL.md")
 
-    # Exit nonzero if anything critical
-    if crit or missing_md:
+    if args.fix:
+        failing = [(d, p) for d, s, p, _, _ in rows if 0 <= s <= 2]
+        if failing:
+            print("\n🔧 SUGGESTED FIXES (four-part description templates)")
+            for d, p in sorted(failing):
+                missing = [x for x in PARTS if x not in p]
+                print(f"\n  {d}  (missing: {', '.join(missing)})")
+                print(f"    {suggest_template(d, missing)}")
+
+    # Exit nonzero if anything critical, or if --min-score gate fails
+    below = any(0 <= s < args.min_score for _, s, _, _, _ in rows) if args.min_score is not None else False
+    if crit or missing_md or below:
         sys.exit(1)
 
 

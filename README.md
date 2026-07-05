@@ -1,4 +1,4 @@
-# claude-skill-audit
+# ClaudeCodeSkillAudit
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -25,12 +25,12 @@ A Claude Code catalog of 100+ skills accumulates entropy. Half of them only fire
 
 ```bash
 # Option A: copy and run
-curl -O https://raw.githubusercontent.com/SUDARSHANCHAUDHARI/claude-skill-audit/main/src/audit.py
+curl -O https://raw.githubusercontent.com/SUDARSHANCHAUDHARI/ClaudeCodeSkillAudit/main/src/audit.py
 python3 audit.py
 
 # Option B: clone
-git clone https://github.com/SUDARSHANCHAUDHARI/claude-skill-audit
-cd claude-skill-audit
+git clone https://github.com/SUDARSHANCHAUDHARI/ClaudeCodeSkillAudit
+cd ClaudeCodeSkillAudit
 python3 src/audit.py
 ```
 
